@@ -20,12 +20,10 @@ const ShopCatalog: FC<{ lang: 'ru' | 'en' }> = ({ lang }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(0);
 
-  // Считываем сортировку из localStorage, чтобы она сохранялась при обновлении
   const [sortBy, setSortBy] = useState<string>(() => {
     return localStorage.getItem('shop_sort_by') || 'title';
   });
 
-  // Записываем новое значение в localStorage при каждом изменении
   useEffect(() => {
     localStorage.setItem('shop_sort_by', sortBy);
   }, [sortBy]);
@@ -33,15 +31,22 @@ const ShopCatalog: FC<{ lang: 'ru' | 'en' }> = ({ lang }) => {
   useEffect(() => {
     setLoading(true); 
     const skip = currentPage * 12;
-    const url = `https://dummyjson.com/products?limit=12&skip=${skip}&sortBy=${sortBy}&order=asc`;
+    
+    // ИСПРАВЛЕНИЕ: DummyJSON не умеет сортировать по 'title'. 
+    // Если выбрано 'title', делаем обычный запрос без параметров сортировки.
+    const url = sortBy === 'title'
+      ? `https://dummyjson.com/products?limit=12&skip=${skip}`
+      : `https://dummyjson.com/products?limit=12&skip=${skip}&sortBy=${sortBy}&order=asc`;
     
     fetch(url)
       .then((res) => {
-        if (!res.ok) throw new Error('Ошибка сети');
+        if (!res.ok) throw new Error('Ошибка при загрузке данных с сервера');
         return res.json();
       })
       .then((data) => {
-        setProducts(data.products);
+        if (data.products) {
+          setProducts(data.products);
+        }
         setLoading(false);
       })
       .catch((err) => {
@@ -69,7 +74,6 @@ const ShopCatalog: FC<{ lang: 'ru' | 'en' }> = ({ lang }) => {
             </select>
           </div>
           
-          {/* Кнопка сброса */}
           <button onClick={() => { setSortBy('title'); setCurrentPage(0); }} className="reset-btn">
             🔄 {lang === 'ru' ? 'Сбросить' : 'Reset'}
           </button>
@@ -141,6 +145,8 @@ const App: FC = () => {
         <Routes>
           <Route path="/" element={<ShopCatalog lang={lang} />} />
           <Route path="/product/:id" element={<ProductDetail />} />
+          {/* Дополнительный фоллбэк на случай кривых путей */}
+          <Route path="*" element={<ShopCatalog lang={lang} />} />
         </Routes>
       </main>
     </div>
